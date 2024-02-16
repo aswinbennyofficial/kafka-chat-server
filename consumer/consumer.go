@@ -14,12 +14,12 @@ import (
 func main() {
     TOPIC_NAME := "TOPIC_NAME"
 
-    keypair, err := tls.LoadX509KeyPair("service.cert", "service.key")
+    keypair, err := tls.LoadX509KeyPair("./keys/service.cert", "./keys/service.key")
     if err != nil {
         log.Fatalf("Failed to load access key and/or access certificate: %s", err)
     }
 
-    caCert, err := ioutil.ReadFile("ca.pem")
+    caCert, err := ioutil.ReadFile("./keys/ca.pem")
     if err != nil {
         log.Fatalf("Failed to read CA certificate file: %s", err)
     }
