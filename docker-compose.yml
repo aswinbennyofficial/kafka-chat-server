@@ -15,6 +15,7 @@ services:
       KAFKA_LISTENERS: 'PLAINTEXT://broker:29092,CONTROLLER://broker:29093,PLAINTEXT_HOST://0.0.0.0:9092'
 
   kafka-ui:
+  
     image: provectuslabs/kafka-ui:latest
     ports:
       - 9999:8080

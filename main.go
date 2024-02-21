@@ -16,7 +16,7 @@ func main(){
 		// produce messages in a new go routine, since
 		// both the produce and consume functions are
 		// blocking
-		go produce(ctx)
+		produce(ctx)
 		consume(ctx)
 
 }
@@ -24,10 +24,8 @@ func main(){
 // the topic and broker address are initialized as constants
 const (
 	topic          = "hi"
-	broker0Address = "localhost:9092"
-	broker1Address = "localhost:9093"
-	broker2Address = "localhost:9094"
-	broker3Address = "localhost:9095"
+	brokerAddress = "localhost:9092"
+	
 )
 
 func consume(ctx context.Context) {
@@ -36,7 +34,7 @@ func consume(ctx context.Context) {
 	// it from receiving duplicate messages
 	r := kafka.NewReader(kafka.ReaderConfig{
 		// Brokers: []string{broker1Address, broker2Address, broker3Address},
-		Brokers: []string{broker0Address},
+		Brokers: []string{brokerAddress},
 
 		Topic:   topic,
 		GroupID: "my-group",
@@ -61,7 +59,7 @@ func produce(ctx context.Context) {
 	// intialize the writer with the broker addresses, and the topic
 	w := kafka.NewWriter(kafka.WriterConfig{
 		// Brokers: []string{broker1Address, broker2Address, broker3Address},
-		Brokers: []string{broker0Address},
+		Brokers: []string{brokerAddress},
 		Topic:   topic,
 	})
 
