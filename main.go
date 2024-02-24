@@ -1,85 +1,66 @@
 package main
 
 import (
-    "context"
-    // "log"
-    "time"
-	"fmt"
-	"strconv"
+	"log"
+	"net/http"
+	"strings"
 
-    "github.com/segmentio/kafka-go"
+	"github.com/gorilla/websocket"
 )
 
-func main(){
-		// create a new context
-		ctx := context.Background()
-		// produce messages in a new go routine, since
-		// both the produce and consume functions are
-		// blocking
-		produce(ctx)
-		consume(ctx)
-
+type client struct {
+	username string
+	conn     *websocket.Conn
 }
 
-// the topic and broker address are initialized as constants
-const (
-	topic          = "hi"
-	brokerAddress = "localhost:9092"
-	
-)
+var clients = make(map[*websocket.Conn]*client)
+var upgrader = websocket.Upgrader{}
 
-func consume(ctx context.Context) {
-	// initialize a new reader with the brokers and topic
-	// the groupID identifies the consumer and prevents
-	// it from receiving duplicate messages
-	r := kafka.NewReader(kafka.ReaderConfig{
-		// Brokers: []string{broker1Address, broker2Address, broker3Address},
-		Brokers: []string{brokerAddress},
+func main() {
+	http.HandleFunc("/ws", wsHandler)
+	http.Handle("/", http.FileServer(http.Dir("./static")))
+	log.Println("Server started on http://localhost:8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
 
-		Topic:   topic,
-		GroupID: "my-group",
-	})
+func wsHandler(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println("Failed to upgrade to WebSocket:", err)
+		return
+	}
+	defer conn.Close()
+
+	// Get the username from the client
+	_, msg, err := conn.ReadMessage()
+	if err != nil {
+		log.Println("Failed to read username:", err)
+		return
+	}
+	username := strings.TrimSpace(string(msg))
+
+	client := &client{
+		username: username,
+		conn:     conn,
+	}
+	clients[conn] = client
+
+	log.Printf("User '%s' connected", username)
+
 	for {
-		// the `ReadMessage` method blocks until we receive the next event
-		msg, err := r.ReadMessage(ctx)
+		_, msg, err := conn.ReadMessage()
 		if err != nil {
-			panic("could not read message " + err.Error())
+			log.Println("Error reading message:", err)
+			break
 		}
-		// after receiving the message, log its value
-		fmt.Println("received: ", string(msg.Value))
+		broadcastMessage(client, string(msg))
 	}
 }
 
-
-
-func produce(ctx context.Context) {
-	// initialize a counter
-	i := 0
-
-	// intialize the writer with the broker addresses, and the topic
-	w := kafka.NewWriter(kafka.WriterConfig{
-		// Brokers: []string{broker1Address, broker2Address, broker3Address},
-		Brokers: []string{brokerAddress},
-		Topic:   topic,
-	})
-
-	for {
-		// each kafka message has a key and value. The key is used
-		// to decide which partition (and consequently, which broker)
-		// the message gets published on
-		err := w.WriteMessages(ctx, kafka.Message{
-			Key: []byte(strconv.Itoa(i)),
-			// create an arbitrary message payload for the value
-			Value: []byte("this is message" + strconv.Itoa(i)),
-		})
-		if err != nil {
-			panic("could not write message " + err.Error())
+func broadcastMessage(sender *client, message string) {
+	for conn, client := range clients {
+		if conn != sender.conn {
+			client.conn.WriteMessage(websocket.TextMessage, []byte(sender.username+": "+message))
 		}
-
-		// log a confirmation once the message is written
-		fmt.Println("writes:", i)
-		i++
-		// sleep for a second
-		time.Sleep(time.Second)
 	}
 }
